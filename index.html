@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio Content Manager</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        
+        /* Custom Scrollbar for Textareas */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        /* Modal Transitions */
+        .modal-enter { opacity: 0; transform: scale(0.95); }
+        .modal-enter-active { opacity: 1; transform: scale(1); transition: all 0.2s ease-out; }
+        .modal-exit { opacity: 1; transform: scale(1); }
+        .modal-exit-active { opacity: 0; transform: scale(0.95); transition: all 0.2s ease-in; }
+        
+        .toast-enter { transform: translateY(100%); opacity: 0; }
+        .toast-enter-active { transform: translateY(0); opacity: 1; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-900 text-slate-200">
+
+    <!-- Top Navigation -->
+    <nav class="bg-slate-800/50 backdrop-blur-md border-b border-slate-700 sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2 bg-indigo-500 rounded-lg">
+                        <i data-lucide="layout-dashboard" class="text-white w-6 h-6"></i>
+                    </div>
+                    <span class="font-bold text-xl tracking-tight text-white">Project<span class="text-indigo-400">Manager</span></span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="statusBadge" class="hidden flex items-center space-x-2 text-sm font-medium px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                        <i data-lucide="database" class="w-4 h-4"></i>
+                        <span>Using Mock Data</span>
+                    </div>
+                    <button onclick="openModal()" class="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-medium transition-all shadow-lg shadow-indigo-500/30">
+                        <i data-lucide="plus" class="w-5 h-5"></i>
+                        <span>New Project</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <div class="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+            <div>
+                <h1 class="text-2xl font-bold text-white">Your Projects</h1>
+                <p class="text-slate-400 text-sm mt-1">Manage and sync portfolio items with Google Sheets & Drive.</p>
+            </div>
+            
+            <div class="relative w-full sm:w-64">
+                <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                <input type="text" placeholder="Search projects..." class="w-full bg-slate-800 border border-slate-700 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent pl-10 pr-4 py-2 outline-none text-white placeholder-slate-400 transition-all">
+            </div>
+        </div>
+
+        <div id="loader" class="flex flex-col items-center justify-center py-20">
+            <i data-lucide="loader-2" class="w-8 h-8 animate-spin text-indigo-500 mb-4"></i>
+            <p class="text-slate-400 text-sm">Fetching projects...</p>
+        </div>
+
+        <div id="projectsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 hidden">
+            <!-- Project Cards Injected Here -->
+        </div>
+    </main>
+
+    <!-- Project Modal -->
+    <div id="projectModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeModal()"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col transform transition-all">
+                
+                <div class="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+                    <h2 id="modalTitle" class="text-xl font-semibold text-white">Add New Project</h2>
+                    <button onclick="closeModal()" class="text-slate-400 hover:text-white transition-colors">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+
+                <div class="p-6 overflow-y-auto custom-scrollbar flex-1">
+                    <form id="projectForm" class="space-y-6">
+                        <input type="hidden" id="p_id">
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-slate-300">Project Title <span class="text-red-400">*</span></label>
+                                <input type="text" id="p_title" required placeholder="e.g., NewsPulse AI" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                            </div>
+                            
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-slate-300">Category <span class="text-red-400">*</span></label>
+                                <input type="text" id="p_category" required placeholder="e.g., ai, web, data" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                            </div>
+
+                            <!-- Image Upload Section (IMPROVED PREVIEW) -->
+                            <div class="space-y-2 col-span-1 md:col-span-2 border border-slate-700 p-4 rounded-xl bg-slate-800/50">
+                                <label class="text-sm font-medium text-slate-300">Project Thumbnail</label>
+                                
+                                <!-- Large Preview Container -->
+                                <div id="imagePreviewContainer" class="w-full h-48 rounded-lg bg-slate-900 border border-slate-700 overflow-hidden hidden relative mb-4">
+                                    <img id="imagePreview" src="" referrerpolicy="no-referrer" class="w-full h-full object-contain">
+                                    <button type="button" onclick="clearImage()" class="absolute top-2 right-2 bg-red-500/80 hover:bg-red-500 text-white p-1.5 rounded shadow backdrop-blur-sm transition-all">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+
+                                <input type="file" id="p_thumbnail_file" accept="image/*" class="w-full text-sm text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-500/10 file:text-indigo-400 hover:file:bg-indigo-500/20 transition-all cursor-pointer">
+                                <input type="hidden" id="p_thumbnail_url">
+                                <p class="text-xs text-slate-500 mt-2">Note: Keep images under 2MB. Preview might take a second to load for Drive links.</p>
+                            </div>
+
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-slate-300">Technologies (Comma separated)</label>
+                                <input type="text" id="p_technologies" placeholder="e.g., Python, React, SQL" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                            </div>
+
+                            <div class="space-y-2">
+                                <label class="text-sm font-medium text-slate-300">Live Demo Link</label>
+                                <input type="url" id="p_liveLink" placeholder="https://..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                            </div>
+
+                            <div class="space-y-2 md:col-span-2">
+                                <label class="text-sm font-medium text-slate-300">Source Code Link</label>
+                                <input type="url" id="p_codeLink" placeholder="https://github.com/..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-slate-300">Key Result (Short Highlight)</label>
+                            <input type="text" id="p_result" placeholder="e.g., 100% Automated NLP Pipeline" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all">
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-slate-300">The Problem</label>
+                            <textarea id="p_problem" rows="3" placeholder="Describe the challenge..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"></textarea>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-slate-300">The Solution</label>
+                            <textarea id="p_solution" rows="3" placeholder="Describe how you solved it..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"></textarea>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-slate-300">Detailed Result</label>
+                            <textarea id="p_result1" rows="3" placeholder="Explain the impact and metrics..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"></textarea>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="px-6 py-4 border-t border-slate-700 bg-slate-800/50 flex justify-end space-x-3 rounded-b-2xl">
+                    <button type="button" onclick="closeModal()" class="px-5 py-2 text-sm font-medium text-slate-300 hover:text-white bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors">
+                        Cancel
+                    </button>
+                    <button type="button" onclick="saveProject()" id="saveBtn" class="flex items-center space-x-2 px-5 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors shadow-lg shadow-indigo-500/20">
+                        <i data-lucide="save" class="w-4 h-4"></i>
+                        <span>Save Project</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-3"></div>
+
+    <script>
+        // ==========================================
+        // 1. CONFIGURATION (APNA APP SCRIPT URL YAHAN DAALEIN)
+        // ==========================================
+        const GOOGLE_APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzUfF9_aS6yiGNE5nMqUUMcCTfChXy7aR9xqN1Nqmg1EplMXmtxQPRxxMrz7XXbf4-c/exec'; 
+        
+        const mockData = [
+            {
+                "id": 1,
+                "category": "ai",
+                "title": "NewsPulse AI - Sentiment Analysis",
+                "thumbnail": "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&q=80&w=600",
+                "problem": "Manual market research lacks scalable methods to quantify subjective bias.",
+                "solution": "Architected an automated NLP pipeline to quantify emotional polarity.",
+                "technologies": ["Python", "NLP", "Streamlit"],
+                "result": "100% Automated Pipeline"
+            }
+        ];
+
+        let stateProjects = [];
+        let isMockMode = !GOOGLE_APP_SCRIPT_URL.trim();
+
+        lucide.createIcons();
+
+        // Convert file to Base64
+        function getBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // Image Preview Handler
+        document.getElementById('p_thumbnail_file').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const previewContainer = document.getElementById('imagePreviewContainer');
+            const previewImage = document.getElementById('imagePreview');
+            
+            if (file) {
+                const url = URL.createObjectURL(file);
+                previewImage.src = url;
+                previewContainer.classList.remove('hidden');
+            } else {
+                clearImage();
+            }
+        });
+
+        function clearImage() {
+            document.getElementById('p_thumbnail_file').value = '';
+            document.getElementById('imagePreviewContainer').classList.add('hidden');
+            document.getElementById('imagePreview').src = '';
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            if (isMockMode) {
+                document.getElementById('statusBadge').classList.remove('hidden');
+                document.getElementById('statusBadge').classList.add('flex');
+            }
+            fetchProjects();
+        });
+
+        async function fetchProjects() {
+            const loader = document.getElementById('loader');
+            const grid = document.getElementById('projectsGrid');
+            loader.classList.remove('hidden');
+            grid.classList.add('hidden');
+
+            try {
+                if (isMockMode) {
+                    await new Promise(r => setTimeout(r, 600));
+                    stateProjects = [...mockData];
+                } else {
+                    const response = await fetch(GOOGLE_APP_SCRIPT_URL);
+                    stateProjects = await response.json();
+                }
+                renderProjects();
+            } catch (error) {
+                console.error(error);
+                showToast("Failed to fetch projects.", "error");
+            } finally {
+                loader.classList.add('hidden');
+                grid.classList.remove('hidden');
+            }
+        }
+
+        async function saveProject() {
+            const form = document.getElementById('projectForm');
+            if(!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const btn = document.getElementById('saveBtn');
+            const originalBtnHtml = btn.innerHTML;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Saving...</span>`;
+            lucide.createIcons();
+            btn.disabled = true;
+
+            const idField = document.getElementById('p_id').value;
+            const action = idField ? 'update' : 'add';
+            
+            // Image logic
+            const fileInput = document.getElementById('p_thumbnail_file');
+            let imageBase64 = null;
+            let fileName = null;
+            let mimeType = null;
+            let existingThumbnail = document.getElementById('p_thumbnail_url').value;
+
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                imageBase64 = await getBase64(file);
+                fileName = file.name;
+                mimeType = file.type;
+            }
+            
+            const rawTech = document.getElementById('p_technologies').value;
+            const techArray = rawTech ? rawTech.split(',').map(s => s.trim()).filter(s => s) : [];
+
+            const projectData = {
+                id: idField || Date.now().toString(),
+                category: document.getElementById('p_category').value,
+                title: document.getElementById('p_title').value,
+                thumbnail: existingThumbnail, 
+                imageBase64: imageBase64,
+                fileName: fileName,
+                mimeType: mimeType,
+                problem: document.getElementById('p_problem').value,
+                solution: document.getElementById('p_solution').value,
+                technologies: techArray,
+                result1: document.getElementById('p_result1').value,
+                result: document.getElementById('p_result').value,
+                liveLink: document.getElementById('p_liveLink').value,
+                codeLink: document.getElementById('p_codeLink').value
+            };
+
+            try {
+                if (isMockMode) {
+                    await new Promise(r => setTimeout(r, 800));
+                    if(action === 'add') {
+                        if(imageBase64) projectData.thumbnail = imageBase64; 
+                        stateProjects.push(projectData);
+                    } else {
+                        const index = stateProjects.findIndex(p => p.id.toString() === projectData.id.toString());
+                        if(index > -1) {
+                            if(imageBase64) projectData.thumbnail = imageBase64;
+                            stateProjects[index] = projectData;
+                        }
+                    }
+                    showToast(`Project ${action === 'add' ? 'added' : 'updated'}! (Mock)`, "success");
+                } else {
+                    const response = await fetch(`${GOOGLE_APP_SCRIPT_URL}?action=${action}`, {
+                        method: 'POST',
+                        body: JSON.stringify(projectData),
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' } 
+                    });
+                    
+                    const result = await response.json();
+                    if(result.status === 'success') {
+                        showToast(`Successfully synced with Google Sheets!`, "success");
+                        fetchProjects();
+                    } else {
+                        throw new Error(result.message || 'Unknown error from server');
+                    }
+                }
+                closeModal();
+                if(isMockMode) renderProjects();
+
+            } catch (error) {
+                console.error("Save Error:", error);
+                showToast(error.message || "Failed to save project.", "error");
+            } finally {
+                btn.innerHTML = originalBtnHtml;
+                btn.disabled = false;
+                lucide.createIcons();
+            }
+        }
+
+        function renderProjects() {
+            const grid = document.getElementById('projectsGrid');
+            grid.innerHTML = '';
+
+            if(stateProjects.length === 0) {
+                grid.innerHTML = `<div class="col-span-full py-16 text-center bg-slate-800/30 rounded-2xl border border-slate-700/50 border-dashed">
+                    <p class="text-slate-400">No Projects Found.</p>
+                </div>`;
+                return;
+            }
+
+            stateProjects.forEach(proj => {
+                const techs = Array.isArray(proj.technologies) ? proj.technologies 
+                              : (typeof proj.technologies === 'string' && proj.technologies.trim() !== "") 
+                              ? proj.technologies.split(',').map(s=>s.trim()) : [];
+
+                const card = document.createElement('div');
+                card.className = "bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden hover:shadow-xl hover:shadow-indigo-500/10 transition-all flex flex-col group";
+                
+                const catColors = {
+                    'ai': 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+                    'web': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+                    'data': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                };
+                const badgeStyle = catColors[proj.category?.toLowerCase()] || 'bg-slate-700/50 text-slate-300 border-slate-600';
+
+                // Handle Drive Links vs regular text like "project1.jpg"
+                let isImageURL = proj.thumbnail && (proj.thumbnail.startsWith('http') || proj.thumbnail.startsWith('data:image'));
+                
+                let imageHtml = `
+                    <div class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 bg-slate-800 p-4 text-center">
+                        <i data-lucide="image" class="w-10 h-10 opacity-30 mb-2"></i>
+                        <span class="text-xs truncate w-full opacity-60">${proj.thumbnail || 'No Image'}</span>
+                    </div>`;
+                
+                // IMPORTANT: Added referrerpolicy="no-referrer" to allow Drive images
+                if (isImageURL) {
+                    imageHtml = `<img src="${proj.thumbnail}" referrerpolicy="no-referrer" alt="${proj.title}" class="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-300">`;
+                }
+
+                card.innerHTML = `
+                    <div class="relative h-48 bg-slate-900 overflow-hidden">
+                        ${imageHtml}
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
+                        <div class="absolute top-4 left-4">
+                            <span class="px-2.5 py-1 text-xs font-semibold rounded-full border backdrop-blur-sm uppercase tracking-wider ${badgeStyle}">${proj.category || 'General'}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="p-5 flex-1 flex flex-col">
+                        <h3 class="text-lg font-bold text-white mb-2 line-clamp-2">${proj.title}</h3>
+                        <p class="text-sm text-slate-400 mb-4 line-clamp-3 flex-1">${proj.problem || 'No description'}</p>
+                        
+                        <div class="flex flex-wrap gap-1.5 mb-4">
+                            ${techs.slice(0,4).map(t => `<span class="px-2 py-1 bg-slate-900 border border-slate-700 rounded text-xs text-slate-300">${t}</span>`).join('')}
+                            ${techs.length > 4 ? `<span class="px-2 py-1 bg-slate-900 border border-slate-700 rounded text-xs text-slate-500">+${techs.length - 4}</span>` : ''}
+                        </div>
+                        
+                        <div class="pt-4 border-t border-slate-700 flex justify-between items-center mt-auto">
+                            <div class="flex space-x-2">
+                                ${proj.liveLink ? `<a href="${proj.liveLink}" target="_blank" class="text-slate-400 hover:text-indigo-400 transition-colors"><i data-lucide="external-link" class="w-5 h-5"></i></a>` : ''}
+                                ${proj.codeLink ? `<a href="${proj.codeLink}" target="_blank" class="text-slate-400 hover:text-indigo-400 transition-colors"><i data-lucide="github" class="w-5 h-5"></i></a>` : ''}
+                            </div>
+                            <button onclick='openModal(${JSON.stringify(proj).replace(/'/g, "&#39;")})' class="text-sm flex items-center space-x-1.5 px-3 py-1.5 bg-slate-700 hover:bg-indigo-600 text-white rounded-lg transition-colors">
+                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                                <span>Edit</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        function openModal(project = null) {
+            const modal = document.getElementById('projectModal');
+            const title = document.getElementById('modalTitle');
+            const form = document.getElementById('projectForm');
+            const previewContainer = document.getElementById('imagePreviewContainer');
+            const previewImage = document.getElementById('imagePreview');
+            
+            form.reset();
+            previewContainer.classList.add('hidden');
+            previewImage.src = '';
+            
+            if (project) {
+                title.innerText = "Edit Project";
+                document.getElementById('p_id').value = project.id || '';
+                document.getElementById('p_title').value = project.title || '';
+                document.getElementById('p_category').value = project.category || '';
+                document.getElementById('p_thumbnail_url').value = project.thumbnail || '';
+                
+                // Show existing image in preview if it's a valid link
+                if(project.thumbnail && (project.thumbnail.startsWith('http') || project.thumbnail.startsWith('data:'))) {
+                    previewImage.src = project.thumbnail;
+                    previewContainer.classList.remove('hidden');
+                }
+                
+                let techs = project.technologies || [];
+                if(Array.isArray(techs)) techs = techs.join(', ');
+                document.getElementById('p_technologies').value = techs;
+                
+                document.getElementById('p_liveLink').value = project.liveLink === '#' ? '' : (project.liveLink || '');
+                document.getElementById('p_codeLink').value = project.codeLink === '#' ? '' : (project.codeLink || '');
+                document.getElementById('p_result').value = project.result || '';
+                document.getElementById('p_problem').value = project.problem || '';
+                document.getElementById('p_solution').value = project.solution || '';
+                document.getElementById('p_result1').value = project.result1 || '';
+            } else {
+                title.innerText = "Add New Project";
+                document.getElementById('p_id').value = '';
+                document.getElementById('p_thumbnail_url').value = '';
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.firstElementChild.nextElementSibling.classList.add('modal-enter-active');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('projectModal');
+            modal.firstElementChild.nextElementSibling.classList.remove('modal-enter-active');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            const icon = type === 'success' 
+                ? `<i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400"></i>`
+                : `<i data-lucide="alert-circle" class="w-5 h-5 text-red-400"></i>`;
+                
+            const bgColor = type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-red-500/10 border-red-500/20';
+
+            toast.className = `flex items-center space-x-3 px-4 py-3 bg-slate-800 border ${bgColor} rounded-xl shadow-lg toast-enter`;
+            toast.innerHTML = `${icon}<span class="text-sm font-medium text-slate-200">${message}</span>`;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            requestAnimationFrame(() => {
+                toast.classList.add('toast-enter-active');
+                toast.classList.remove('toast-enter');
+            });
+
+            setTimeout(() => {
+                toast.classList.remove('toast-enter-active');
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+    </script>
+</body>
+</html>
